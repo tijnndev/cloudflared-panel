@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+*.tar
+data/
+
+# Go
+backend/cloudflared-panel
+
+# IDE
+.idea/
+.vscode/
