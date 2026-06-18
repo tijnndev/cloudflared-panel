@@ -16,7 +16,12 @@ COPY backend/ ./
 RUN CGO_ENABLED=0 go build -o /cloudflared-panel .
 
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates cloudflared
+ARG TARGETARCH
+RUN apk add --no-cache ca-certificates wget \
+    && wget -q "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${TARGETARCH}" \
+       -O /usr/local/bin/cloudflared \
+    && chmod +x /usr/local/bin/cloudflared \
+    && apk del wget
 WORKDIR /app
 COPY --from=backend-build /cloudflared-panel /app/cloudflared-panel
 COPY --from=frontend-build /app/dist /app/static
