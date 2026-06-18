@@ -14,10 +14,70 @@
   --radius: 10px;
   --font: 'IBM Plex Sans', system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --scrollbar-track: var(--surface);
+  --scrollbar-thumb: #3a4656;
+  --scrollbar-thumb-hover: #4f6074;
+  --scrollbar-thumb-active: var(--accent-dim);
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border: 2px solid var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background: var(--scrollbar-thumb-active);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
+}
+
+.sidebar,
+.main,
+.table-wrap,
+.sidebar nav {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+.sidebar::-webkit-scrollbar-track,
+.main::-webkit-scrollbar-track,
+.table-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb,
+.main::-webkit-scrollbar-thumb,
+.table-wrap::-webkit-scrollbar-thumb {
+  border-color: transparent;
+}
+
+.sidebar nav::-webkit-scrollbar {
+  height: 6px;
+}
+
+.sidebar nav::-webkit-scrollbar-thumb {
+  border-width: 1px;
 }
 
 html,
