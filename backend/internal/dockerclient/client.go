@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -236,21 +237,40 @@ func ListHomeDir(basePath string) ([]FileEntry, error) {
 		if err != nil {
 			continue
 		}
+
+		fullPath := filepath.Join(basePath, e.Name())
+		modified, created := fileTimes(fullPath, info)
+
 		out = append(out, FileEntry{
-			Name:    e.Name(),
-			Path:    filepath.Join(basePath, e.Name()),
-			IsDir:   e.IsDir(),
-			Size:    info.Size(),
-			ModTime: info.ModTime(),
+			Name:       e.Name(),
+			Path:       fullPath,
+			IsDir:      e.IsDir(),
+			Type:       entryType(e.Name(), e.IsDir()),
+			Size:       info.Size(),
+			ModifiedAt: modified,
+			CreatedAt:  created,
 		})
 	}
 	return out, nil
 }
 
+func entryType(name string, isDir bool) string {
+	if isDir {
+		return "Directory"
+	}
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == "" {
+		return "File"
+	}
+	return strings.TrimPrefix(ext, ".") + " file"
+}
+
 type FileEntry struct {
-	Name    string `json:"name"`
-	Path    string `json:"path"`
-	IsDir   bool   `json:"isDir"`
-	Size    int64  `json:"size"`
-	ModTime any    `json:"modTime"`
+	Name       string    `json:"name"`
+	Path       string    `json:"path"`
+	IsDir      bool      `json:"isDir"`
+	Type       string    `json:"type"`
+	Size       int64     `json:"size"`
+	ModifiedAt time.Time `json:"modifiedAt"`
+	CreatedAt  time.Time `json:"createdAt"`
 }

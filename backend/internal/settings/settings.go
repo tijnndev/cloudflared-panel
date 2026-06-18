@@ -9,6 +9,7 @@ import (
 
 type Settings struct {
 	CloudflaredConfigPath string   `json:"cloudflaredConfigPath"`
+	OriginCertPath        string   `json:"originCertPath"`
 	HomeUsers             []string `json:"homeUsers"`
 	DataDir               string   `json:"-"`
 }
@@ -62,6 +63,7 @@ func (s *Store) Update(in Settings) error {
 	if in.CloudflaredConfigPath != "" {
 		s.settings.CloudflaredConfigPath = in.CloudflaredConfigPath
 	}
+	s.settings.OriginCertPath = in.OriginCertPath
 	if in.HomeUsers != nil {
 		s.settings.HomeUsers = in.HomeUsers
 	}

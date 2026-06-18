@@ -8,6 +8,7 @@ services:
     environment:
       - PORT=8090
       - DATA_DIR=/data
+      - TUNNEL_ORIGIN_CERT=${TUNNEL_ORIGIN_CERT:-}
     volumes:
       - panel_data:/data
       - /var/run/docker.sock:/var/run/docker.sock

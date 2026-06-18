@@ -25,6 +25,7 @@ export interface RouteStatus {
 export interface Overview {
   tunnel: string
   credentialsFile: string
+  originCert?: string
   configPath: string
   cloudflaredRunning: boolean
   tunnelInfo?: string
@@ -43,6 +44,7 @@ export interface ComposeService {
 
 export interface Settings {
   cloudflaredConfigPath: string
+  originCertPath?: string
   homeUsers: string[]
 }
 
@@ -50,7 +52,10 @@ export interface FileEntry {
   name: string
   path: string
   isDir: boolean
+  type: string
   size: number
+  modifiedAt?: string
+  createdAt?: string
 }
 
 export interface BrowseResponse {

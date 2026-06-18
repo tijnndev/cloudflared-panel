@@ -248,23 +248,34 @@ textarea {
   margin-bottom: 1rem;
 }
 
-.file-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
 }
 
-.file-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.65rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+th.sortable:hover,
+th.sort-active {
+  color: var(--text);
+}
+
+.sort-indicator {
+  color: var(--accent);
+  font-size: 0.7rem;
+}
+
+.file-row.dir-row {
   cursor: pointer;
 }
 
-.file-item:hover {
+.file-row.dir-row:hover td {
   background: var(--surface-2);
+}
+
+.file-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 
 .breadcrumb {

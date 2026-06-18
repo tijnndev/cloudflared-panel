@@ -40,15 +40,21 @@ type RouteStatus struct {
 }
 
 type OverviewResponse struct {
-	Tunnel          string        `json:"tunnel"`
-	CredentialsFile string        `json:"credentialsFile"`
-	ConfigPath      string        `json:"configPath"`
-	CloudflaredRunning bool       `json:"cloudflaredRunning"`
-	TunnelInfo      string        `json:"tunnelInfo,omitempty"`
-	TunnelList      string        `json:"tunnelList,omitempty"`
-	Routes          []RouteStatus `json:"routes"`
-	Containers      []dockerclient.ContainerStatus `json:"containers"`
-	ComposeServices []dockerclient.ComposeService  `json:"composeServices"`
+	Tunnel             string                         `json:"tunnel"`
+	CredentialsFile    string                         `json:"credentialsFile"`
+	OriginCert         string                         `json:"originCert,omitempty"`
+	ConfigPath         string                         `json:"configPath"`
+	CloudflaredRunning bool                           `json:"cloudflaredRunning"`
+	TunnelInfo         string                         `json:"tunnelInfo,omitempty"`
+	TunnelList         string                         `json:"tunnelList,omitempty"`
+	Routes             []RouteStatus                  `json:"routes"`
+	Containers         []dockerclient.ContainerStatus `json:"containers"`
+	ComposeServices    []dockerclient.ComposeService  `json:"composeServices"`
+}
+
+func (h *Handler) tunnelAuth(tunnelCfg *cloudflared.TunnelConfig) cloudflared.AuthOptions {
+	cfg := h.settings.Get()
+	return cloudflared.ResolveAuth(tunnelCfg, cfg.CloudflaredConfigPath, cfg.OriginCertPath)
 }
 
 func (h *Handler) GetOverview(c *gin.Context) {
@@ -99,6 +105,7 @@ func (h *Handler) GetOverview(c *gin.Context) {
 	resp := OverviewResponse{
 		Tunnel:             tunnelCfg.Tunnel,
 		CredentialsFile:    tunnelCfg.CredentialsFile,
+		OriginCert:         h.tunnelAuth(tunnelCfg).OriginCert,
 		ConfigPath:         cfg.CloudflaredConfigPath,
 		CloudflaredRunning: h.cli.IsRunning(ctx),
 		Routes:             routes,
@@ -106,11 +113,12 @@ func (h *Handler) GetOverview(c *gin.Context) {
 		ComposeServices:    composeServices,
 	}
 
+	auth := h.tunnelAuth(tunnelCfg)
 	if tunnelCfg.Tunnel != "" {
-		if info, err := h.cli.TunnelInfo(ctx, tunnelCfg.Tunnel); err == nil {
+		if info, err := h.cli.TunnelInfo(ctx, auth, tunnelCfg.Tunnel); err == nil {
 			resp.TunnelInfo = info
 		}
-		if list, err := h.cli.ListTunnels(ctx); err == nil {
+		if list, err := h.cli.ListTunnels(ctx, auth); err == nil {
 			resp.TunnelList = list
 		}
 	}
@@ -170,7 +178,7 @@ func (h *Handler) AddRoute(c *gin.Context) {
 
 	var dnsOutput string
 	if req.RouteDNS && tunnelCfg.Tunnel != "" {
-		dnsOutput, err = h.cli.RouteDNS(c.Request.Context(), tunnelCfg.Tunnel, req.Hostname)
+		dnsOutput, err = h.cli.RouteDNS(c.Request.Context(), h.tunnelAuth(tunnelCfg), tunnelCfg.Tunnel, req.Hostname)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Route added to config but DNS routing failed",
@@ -206,7 +214,7 @@ func (h *Handler) RouteDNS(c *gin.Context) {
 		return
 	}
 
-	output, err := h.cli.RouteDNS(c.Request.Context(), tunnelCfg.Tunnel, req.Hostname)
+	output, err := h.cli.RouteDNS(c.Request.Context(), h.tunnelAuth(tunnelCfg), tunnelCfg.Tunnel, req.Hostname)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -299,8 +307,14 @@ func (h *Handler) BrowseHome(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	if entries == nil {
+		entries = []dockerclient.FileEntry{}
+	}
 
 	composeFiles := findComposeFilesInDir(target)
+	if composeFiles == nil {
+		composeFiles = []string{}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"username":     username,

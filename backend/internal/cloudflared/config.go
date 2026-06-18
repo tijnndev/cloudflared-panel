@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -20,7 +21,38 @@ type IngressRule struct {
 type TunnelConfig struct {
 	Tunnel          string        `yaml:"tunnel" json:"tunnel"`
 	CredentialsFile string        `yaml:"credentials-file" json:"credentialsFile"`
+	OriginCert      string        `yaml:"origincert,omitempty" json:"originCert,omitempty"`
 	Ingress         []IngressRule `yaml:"ingress" json:"ingress"`
+}
+
+type AuthOptions struct {
+	ConfigPath string
+	OriginCert string
+}
+
+func ResolveAuth(cfg *TunnelConfig, configPath, overrideOriginCert string) AuthOptions {
+	opts := AuthOptions{ConfigPath: configPath}
+
+	switch {
+	case overrideOriginCert != "":
+		opts.OriginCert = overrideOriginCert
+	case cfg != nil && cfg.OriginCert != "":
+		opts.OriginCert = cfg.OriginCert
+	case os.Getenv("TUNNEL_ORIGIN_CERT") != "":
+		opts.OriginCert = os.Getenv("TUNNEL_ORIGIN_CERT")
+	case cfg != nil && cfg.CredentialsFile != "":
+		cert := filepath.Join(filepath.Dir(cfg.CredentialsFile), "cert.pem")
+		if fileExists(cert) {
+			opts.OriginCert = cert
+		}
+	}
+
+	return opts
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 type ParsedService struct {

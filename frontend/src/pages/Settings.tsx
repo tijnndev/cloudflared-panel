@@ -4,6 +4,7 @@ import { api, Settings as SettingsType } from '../api'
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsType>({
     cloudflaredConfigPath: '/etc/cloudflared/config.yml',
+    originCertPath: '',
     homeUsers: ['msquad'],
   })
   const [homeUsersText, setHomeUsersText] = useState('msquad')
@@ -31,6 +32,7 @@ export default function Settings() {
     try {
       const updated = await api.updateSettings({
         cloudflaredConfigPath: settings.cloudflaredConfigPath,
+        originCertPath: settings.originCertPath ?? '',
         homeUsers,
       })
       setSettings(updated)
@@ -60,6 +62,19 @@ export default function Settings() {
           />
           <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: 0 }}>
             Tunnel name (e.g. ssh-tunnel) is read automatically from this file.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label htmlFor="originCertPath">Origin certificate path (cert.pem)</label>
+          <input
+            id="originCertPath"
+            value={settings.originCertPath ?? ''}
+            onChange={(e) => setSettings({ ...settings, originCertPath: e.target.value })}
+            placeholder="/home/msquad/.cloudflared/cert.pem"
+          />
+          <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: 0 }}>
+            Required for Route DNS. Auto-detected from credentials-file directory if left empty.
           </p>
         </div>
 

@@ -178,6 +178,11 @@ export default function Dashboard() {
                 {data.credentialsFile}
               </div>
             )}
+            {data.originCert && (
+              <div className="mono" style={{ marginTop: '0.5rem', color: 'var(--muted)' }}>
+                Origin cert: {data.originCert}
+              </div>
+            )}
           </div>
 
           <div className="card table-wrap">

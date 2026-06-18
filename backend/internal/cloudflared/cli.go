@@ -17,17 +17,37 @@ func NewCLI() *CLI {
 	return &CLI{Binary: "cloudflared"}
 }
 
-func (c *CLI) RouteDNS(ctx context.Context, tunnel, hostname string) (string, error) {
+func (c *CLI) RouteDNS(ctx context.Context, auth AuthOptions, tunnel, hostname string) (string, error) {
+	return c.run(ctx, auth, "route", "dns", tunnel, hostname)
+}
+
+func (c *CLI) TunnelInfo(ctx context.Context, auth AuthOptions, tunnel string) (string, error) {
+	return c.run(ctx, auth, "info", tunnel)
+}
+
+func (c *CLI) ListTunnels(ctx context.Context, auth AuthOptions) (string, error) {
+	return c.run(ctx, auth, "list")
+}
+
+func (c *CLI) run(ctx context.Context, auth AuthOptions, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.Binary, "tunnel", "route", "dns", tunnel, hostname)
+	cmdArgs := buildTunnelArgs(auth, args...)
+	cmd := exec.CommandContext(ctx, c.Binary, cmdArgs...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
+		msg := strings.TrimSpace(stderr.String())
+		if msg == "" {
+			msg = strings.TrimSpace(stdout.String())
+		}
+		if auth.OriginCert == "" && strings.Contains(msg, "origin certificate") {
+			msg += " — set origin cert path in Settings or TUNNEL_ORIGIN_CERT (usually ~/.cloudflared/cert.pem)"
+		}
+		return "", fmt.Errorf("%s: %s", err, msg)
 	}
 
 	out := strings.TrimSpace(stdout.String())
@@ -37,34 +57,15 @@ func (c *CLI) RouteDNS(ctx context.Context, tunnel, hostname string) (string, er
 	return out, nil
 }
 
-func (c *CLI) TunnelInfo(ctx context.Context, tunnel string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, c.Binary, "tunnel", "info", tunnel)
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
+func buildTunnelArgs(auth AuthOptions, args ...string) []string {
+	cmdArgs := []string{"tunnel"}
+	if auth.ConfigPath != "" {
+		cmdArgs = append(cmdArgs, "--config", auth.ConfigPath)
 	}
-	return stdout.String(), nil
-}
-
-func (c *CLI) ListTunnels(ctx context.Context) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, c.Binary, "tunnel", "list")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
+	if auth.OriginCert != "" {
+		cmdArgs = append(cmdArgs, "--origincert", auth.OriginCert)
 	}
-	return stdout.String(), nil
+	return append(cmdArgs, args...)
 }
 
 func (c *CLI) IsRunning(ctx context.Context) bool {
