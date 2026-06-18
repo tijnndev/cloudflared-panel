@@ -28,11 +28,12 @@ export interface Overview {
   originCert?: string
   configPath: string
   cloudflaredRunning: boolean
+  routes: RouteStatus[]
+}
+
+export interface TunnelDetails {
   tunnelInfo?: string
   tunnelList?: string
-  routes: RouteStatus[]
-  containers: unknown[]
-  composeServices: ComposeService[]
 }
 
 export interface ComposeService {
@@ -80,6 +81,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   overview: () => request<Overview>('/api/overview'),
+  tunnelDetails: () => request<TunnelDetails>('/api/tunnel/details'),
   addRoute: (body: { hostname: string; port: number; scheme?: string; routeDns?: boolean }) =>
     request('/api/routes', { method: 'POST', body: JSON.stringify(body) }),
   deleteRoute: (hostname: string) =>

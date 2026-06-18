@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -40,16 +41,17 @@ type RouteStatus struct {
 }
 
 type OverviewResponse struct {
-	Tunnel             string                         `json:"tunnel"`
-	CredentialsFile    string                         `json:"credentialsFile"`
-	OriginCert         string                         `json:"originCert,omitempty"`
-	ConfigPath         string                         `json:"configPath"`
-	CloudflaredRunning bool                           `json:"cloudflaredRunning"`
-	TunnelInfo         string                         `json:"tunnelInfo,omitempty"`
-	TunnelList         string                         `json:"tunnelList,omitempty"`
-	Routes             []RouteStatus                  `json:"routes"`
-	Containers         []dockerclient.ContainerStatus `json:"containers"`
-	ComposeServices    []dockerclient.ComposeService  `json:"composeServices"`
+	Tunnel             string        `json:"tunnel"`
+	CredentialsFile    string        `json:"credentialsFile"`
+	OriginCert         string        `json:"originCert,omitempty"`
+	ConfigPath         string        `json:"configPath"`
+	CloudflaredRunning bool          `json:"cloudflaredRunning"`
+	Routes             []RouteStatus `json:"routes"`
+}
+
+type TunnelDetailsResponse struct {
+	TunnelInfo string `json:"tunnelInfo,omitempty"`
+	TunnelList string `json:"tunnelList,omitempty"`
 }
 
 func (h *Handler) tunnelAuth(tunnelCfg *cloudflared.TunnelConfig) cloudflared.AuthOptions {
@@ -67,12 +69,25 @@ func (h *Handler) GetOverview(c *gin.Context) {
 		return
 	}
 
-	var containers []dockerclient.ContainerStatus
-	if h.docker != nil {
-		containers, _ = h.docker.ListContainers(ctx)
-	}
+	var (
+		containers []dockerclient.ContainerStatus
+		running    bool
+		wg         sync.WaitGroup
+	)
 
-	composeServices, _ := dockerclient.ScanComposeProjects(cfg.HomeUsers)
+	if h.docker != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			containers, _ = h.docker.ListContainers(ctx)
+		}()
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		running = h.cli.IsRunning(ctx)
+	}()
+	wg.Wait()
 
 	routes := make([]RouteStatus, 0, len(tunnelCfg.Ingress))
 	for _, rule := range tunnelCfg.Ingress {
@@ -90,9 +105,12 @@ func (h *Handler) GetOverview(c *gin.Context) {
 				if ctr := h.docker.FindByHostPort(containers, parsed.Port); ctr != nil {
 					status.Container = ctr
 					status.ServiceUp = ctr.State == "running"
-				}
-				if cs := dockerclient.MatchComposeService(composeServices, parsed.Port); cs != nil {
-					status.Compose = cs
+					if ctr.Project != "" || ctr.Service != "" {
+						status.Compose = &dockerclient.ComposeService{
+							Name:    ctr.Service,
+							Project: ctr.Project,
+						}
+					}
 				}
 			}
 			if parsed.Scheme == "ssh" && parsed.Port == 22 {
@@ -102,26 +120,52 @@ func (h *Handler) GetOverview(c *gin.Context) {
 		routes = append(routes, status)
 	}
 
-	resp := OverviewResponse{
+	if routes == nil {
+		routes = []RouteStatus{}
+	}
+
+	c.JSON(http.StatusOK, OverviewResponse{
 		Tunnel:             tunnelCfg.Tunnel,
 		CredentialsFile:    tunnelCfg.CredentialsFile,
 		OriginCert:         h.tunnelAuth(tunnelCfg).OriginCert,
 		ConfigPath:         cfg.CloudflaredConfigPath,
-		CloudflaredRunning: h.cli.IsRunning(ctx),
+		CloudflaredRunning: running,
 		Routes:             routes,
-		Containers:         containers,
-		ComposeServices:    composeServices,
+	})
+}
+
+func (h *Handler) GetTunnelDetails(c *gin.Context) {
+	ctx := c.Request.Context()
+	cfg := h.settings.Get()
+
+	tunnelCfg, err := cloudflared.LoadConfig(cfg.CloudflaredConfigPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	resp := TunnelDetailsResponse{}
+	if tunnelCfg.Tunnel == "" {
+		c.JSON(http.StatusOK, resp)
+		return
 	}
 
 	auth := h.tunnelAuth(tunnelCfg)
-	if tunnelCfg.Tunnel != "" {
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
 		if info, err := h.cli.TunnelInfo(ctx, auth, tunnelCfg.Tunnel); err == nil {
 			resp.TunnelInfo = info
 		}
+	}()
+	go func() {
+		defer wg.Done()
 		if list, err := h.cli.ListTunnels(ctx, auth); err == nil {
 			resp.TunnelList = list
 		}
-	}
+	}()
+	wg.Wait()
 
 	c.JSON(http.StatusOK, resp)
 }
@@ -327,7 +371,7 @@ func (h *Handler) BrowseHome(c *gin.Context) {
 
 func (h *Handler) ScanCompose(c *gin.Context) {
 	cfg := h.settings.Get()
-	services, err := dockerclient.ScanComposeProjects(cfg.HomeUsers)
+	services, err := dockerclient.ScanComposeProjectsCached(cfg.HomeUsers)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

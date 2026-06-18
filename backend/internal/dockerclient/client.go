@@ -118,10 +118,8 @@ func ScanComposeProjects(homeUsers []string) ([]ComposeService, error) {
 			}
 			if d.IsDir() {
 				base := filepath.Base(path)
-				if base == "node_modules" || base == ".git" || strings.HasPrefix(base, ".") && base != "." {
-					if base != "." && base != ".." && strings.HasPrefix(base, ".") {
-						return filepath.SkipDir
-					}
+				if shouldSkipDir(base) {
+					return filepath.SkipDir
 				}
 				return nil
 			}
@@ -156,6 +154,28 @@ func ScanComposeProjects(homeUsers []string) ([]ComposeService, error) {
 	}
 
 	return services, nil
+}
+
+var skipDirNames = map[string]struct{}{
+	"node_modules": {},
+	".git":         {},
+	".cache":       {},
+	".npm":         {},
+	".local":       {},
+	"vendor":       {},
+	"target":       {},
+	"dist":         {},
+	"build":        {},
+	"__pycache__":  {},
+	".venv":        {},
+	"venv":         {},
+}
+
+func shouldSkipDir(name string) bool {
+	if _, ok := skipDirNames[name]; ok {
+		return true
+	}
+	return strings.HasPrefix(name, ".") && name != "."
 }
 
 type composeFile struct {

@@ -44,6 +44,7 @@ func main() {
 	api := r.Group("/api")
 	{
 		api.GET("/overview", h.GetOverview)
+		api.GET("/tunnel/details", h.GetTunnelDetails)
 		api.POST("/routes", h.AddRoute)
 		api.DELETE("/routes/:hostname", h.DeleteRoute)
 		api.POST("/routes/dns", h.RouteDNS)

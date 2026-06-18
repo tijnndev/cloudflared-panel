@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, Overview, RouteStatus } from '../api'
+import { api, Overview, RouteStatus, TunnelDetails } from '../api'
+import { DashboardSkeleton } from '../components/DashboardSkeleton'
 
 function StatusBadge({ up, label }: { up: boolean; label?: string }) {
   return (
@@ -99,21 +100,45 @@ function RouteRow({
 
 export default function Dashboard() {
   const [data, setData] = useState<Overview | null>(null)
+  const [tunnelDetails, setTunnelDetails] = useState<TunnelDetails | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState('')
   const [reloading, setReloading] = useState(false)
 
-  const load = useCallback(async () => {
+  const loadDetails = useCallback(async () => {
+    setDetailsLoading(true)
     try {
-      setError('')
-      setData(await api.overview())
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load overview')
+      setTunnelDetails(await api.tunnelDetails())
+    } catch {
+      setTunnelDetails(null)
+    } finally {
+      setDetailsLoading(false)
     }
   }, [])
 
+  const load = useCallback(async (silent = false) => {
+    if (silent) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
+    try {
+      setError('')
+      setData(await api.overview())
+      void loadDetails()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load overview')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [loadDetails])
+
   useEffect(() => {
     load()
-    const id = setInterval(load, 15000)
+    const id = setInterval(() => load(true), 15000)
     return () => clearInterval(id)
   }, [load])
 
@@ -122,7 +147,7 @@ export default function Dashboard() {
     try {
       const res = await api.reloadCloudflared()
       alert(JSON.stringify(res, null, 2))
-      load()
+      load(true)
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Reload failed')
     } finally {
@@ -138,8 +163,10 @@ export default function Dashboard() {
       <div className="page-header">
         <h2>Tunnel Overview</h2>
         <div className="actions">
-          <button className="secondary" onClick={load}>Refresh</button>
-          <button disabled={reloading} onClick={reloadCloudflared}>
+          <button className="secondary" disabled={loading || refreshing} onClick={() => load(true)}>
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+          <button disabled={reloading || loading} onClick={reloadCloudflared}>
             Reload cloudflared
           </button>
         </div>
@@ -147,9 +174,11 @@ export default function Dashboard() {
 
       {error && <div className="error">{error}</div>}
 
+      {loading && !data && <DashboardSkeleton />}
+
       {data && (
         <>
-          <div className="card-grid">
+          <div className={`card-grid${refreshing ? ' refreshing' : ''}`}>
             <div className="card">
               <div className="stat-label">Tunnel</div>
               <div className="stat-value mono">{data.tunnel || '—'}</div>
@@ -199,18 +228,24 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {data.routes.map((route, i) => (
-                  <RouteRow key={route.hostname || `catch-${i}`} route={route} onRefresh={load} />
+                  <RouteRow key={route.hostname || `catch-${i}`} route={route} onRefresh={() => load(true)} />
                 ))}
               </tbody>
             </table>
           </div>
 
-          {data.tunnelInfo && (
-            <div className="card">
-              <div className="stat-label">Tunnel info</div>
-              <pre className="mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{data.tunnelInfo}</pre>
-            </div>
-          )}
+          <div className="card">
+            <div className="stat-label">Tunnel info</div>
+            {detailsLoading && !tunnelDetails?.tunnelInfo && (
+              <div className="skeleton skeleton-block" />
+            )}
+            {tunnelDetails?.tunnelInfo && (
+              <pre className="mono" style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{tunnelDetails.tunnelInfo}</pre>
+            )}
+            {!detailsLoading && !tunnelDetails?.tunnelInfo && (
+              <p style={{ color: 'var(--muted)', margin: 0 }}>Tunnel details unavailable.</p>
+            )}
+          </div>
         </>
       )}
     </>
