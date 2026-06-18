@@ -139,6 +139,9 @@ func ScanComposeProjects(homeUsers []string) ([]ComposeService, error) {
 
 			for svcName, svc := range parsed {
 				hostPorts := extractHostPorts(svc)
+				if hostPorts == nil {
+					hostPorts = []int{}
+				}
 				services = append(services, ComposeService{
 					Name:        svcName,
 					Project:     projectName,

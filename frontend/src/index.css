@@ -20,12 +20,19 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font);
   background: radial-gradient(ellipse at top, #141c28 0%, var(--bg) 55%);
+  background-attachment: fixed;
   color: var(--text);
-  min-height: 100vh;
+  overflow: hidden;
 }
 
 a {
@@ -34,15 +41,21 @@ a {
 }
 
 .layout {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  min-height: 100vh;
+  display: flex;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .sidebar {
+  width: 240px;
+  flex-shrink: 0;
   background: var(--surface);
   border-right: 1px solid var(--border);
   padding: 1.5rem 1rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .sidebar h1 {
@@ -74,7 +87,13 @@ a {
 }
 
 .main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
   padding: 1.5rem 2rem 3rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .page-header {
@@ -251,7 +270,8 @@ textarea {
 .breadcrumb {
   display: flex;
   gap: 0.5rem;
-  align-items: x;
+  align-items: center;
+  flex-wrap: wrap;
   margin-bottom: 1rem;
   color: var(--muted);
   font-size: 0.85rem;
@@ -268,12 +288,75 @@ textarea {
   flex-wrap: wrap;
 }
 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-wrap table {
+  min-width: 640px;
+}
+
+@media (max-width: 900px) {
+  .main {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .page-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .layout {
-    grid-template-columns: 1fr;
+    flex-direction: column;
   }
+
   .sidebar {
+    width: 100%;
+    max-height: none;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    padding: 1rem;
+    overflow-y: visible;
+  }
+
+  .sidebar .subtitle {
+    margin-bottom: 0.75rem;
+  }
+
+  .sidebar nav {
+    display: flex;
+    gap: 0.35rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.15rem;
+  }
+
+  .nav-link {
+    white-space: nowrap;
+    margin-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .main {
+    padding: 1rem 0.85rem 2rem;
+  }
+
+  .card-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
   }
 }

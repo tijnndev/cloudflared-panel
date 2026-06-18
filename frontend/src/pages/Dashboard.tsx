@@ -180,7 +180,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card">
+          <div className="card table-wrap">
             <table>
               <thead>
                 <tr>

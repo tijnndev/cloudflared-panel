@@ -122,7 +122,7 @@ export default function AddRoute() {
       </form>
 
       {compose.length > 0 && (
-        <div className="card">
+        <div className="card table-wrap">
           <div className="stat-label" style={{ marginBottom: '0.75rem' }}>
             Docker Compose services (click to prefill)
           </div>
@@ -136,8 +136,9 @@ export default function AddRoute() {
               </tr>
             </thead>
             <tbody>
-              {compose.flatMap((svc) =>
-                (svc.hostPorts.length ? svc.hostPorts : [0]).map((p) => (
+              {compose.flatMap((svc) => {
+                const ports = svc.hostPorts ?? []
+                return (ports.length ? ports : [0]).map((p) => (
                   <tr
                     key={`${svc.composeFile}-${svc.name}-${p}`}
                     style={{ cursor: p ? 'pointer' : 'default' }}
@@ -148,8 +149,8 @@ export default function AddRoute() {
                     <td className="mono">{p || '—'}</td>
                     <td className="mono" style={{ fontSize: '0.75rem' }}>{svc.composeFile}</td>
                   </tr>
-                )),
-              )}
+                ))
+              })}
             </tbody>
           </table>
         </div>
