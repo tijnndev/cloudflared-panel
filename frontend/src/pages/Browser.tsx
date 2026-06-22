@@ -21,6 +21,10 @@ function formatDate(value?: string) {
 }
 
 function compareEntries(a: FileEntry, b: FileEntry, key: SortKey, dir: SortDir) {
+  if (a.isDir !== b.isDir) {
+    return a.isDir ? -1 : 1
+  }
+
   let cmp = 0
   switch (key) {
     case 'name':
