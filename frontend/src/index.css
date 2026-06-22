@@ -284,6 +284,10 @@ input, select, textarea {
   font-family: inherit;
 }
 
+input[type="checkbox"] {
+  width: fit-content;
+}
+
 textarea {
   min-height: 120px;
   font-family: var(--mono);
