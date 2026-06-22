@@ -8,6 +8,7 @@ export default function Settings() {
     homeUsers: ['msquad'],
   })
   const [homeUsersText, setHomeUsersText] = useState('msquad')
+  const [ignoredPathsText, setIgnoredPathsText] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -16,6 +17,7 @@ export default function Settings() {
       .then((s) => {
         setSettings(s)
         setHomeUsersText(s.homeUsers.join('\n'))
+        setIgnoredPathsText((s.ignoredPaths ?? []).join('\n'))
       })
       .catch((e) => setError(e.message))
   }, [])
@@ -28,15 +30,21 @@ export default function Settings() {
       .split(/[\n,]+/)
       .map((s) => s.trim())
       .filter(Boolean)
+    const ignoredPaths = ignoredPathsText
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
 
     try {
       const updated = await api.updateSettings({
         cloudflaredConfigPath: settings.cloudflaredConfigPath,
         originCertPath: settings.originCertPath ?? '',
         homeUsers,
+        ignoredPaths,
       })
       setSettings(updated)
       setHomeUsersText(updated.homeUsers.join('\n'))
+      setIgnoredPathsText((updated.ignoredPaths ?? []).join('\n'))
       setMessage('Settings saved')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
@@ -88,6 +96,20 @@ export default function Settings() {
           />
           <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: 0 }}>
             Used for /home/&#123;user&#125; browsing and docker-compose discovery.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: '1rem' }}>
+          <label htmlFor="ignoredPaths">Ignored folders (one per line)</label>
+          <textarea
+            id="ignoredPaths"
+            value={ignoredPathsText}
+            onChange={(e) => setIgnoredPathsText(e.target.value)}
+            placeholder="/home/msquad/jetson-containers&#10;jetson-containers"
+          />
+          <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: 0 }}>
+            Compose projects inside these paths are excluded from Services and route linking.
+            Use a full path or just the folder name.
           </p>
         </div>
 

@@ -88,7 +88,7 @@ func (h *Handler) GetOverview(c *gin.Context) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		composeServices, _ = dockerclient.ScanComposeProjectsCached(cfg.HomeUsers)
+		composeServices, _ = dockerclient.ScanComposeProjectsCached(cfg.HomeUsers, cfg.IgnoredPaths)
 	}()
 	wg.Add(1)
 	go func() {
@@ -324,6 +324,8 @@ func (h *Handler) UpdateSettings(c *gin.Context) {
 		return
 	}
 
+	dockerclient.InvalidateComposeCache()
+
 	c.JSON(http.StatusOK, h.settings.Get())
 }
 
@@ -395,7 +397,7 @@ func (h *Handler) GetComposeProjects(c *gin.Context) {
 	ctx := c.Request.Context()
 	cfg := h.settings.Get()
 
-	services, err := dockerclient.ScanComposeProjectsCached(cfg.HomeUsers)
+	services, err := dockerclient.ScanComposeProjectsCached(cfg.HomeUsers, cfg.IgnoredPaths)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -483,7 +485,7 @@ func isAllowedComposePath(composeFile string, homeUsers []string) bool {
 
 func (h *Handler) ScanCompose(c *gin.Context) {
 	cfg := h.settings.Get()
-	services, err := dockerclient.ScanComposeProjectsCached(cfg.HomeUsers)
+	services, err := dockerclient.ScanComposeProjectsCached(cfg.HomeUsers, cfg.IgnoredPaths)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

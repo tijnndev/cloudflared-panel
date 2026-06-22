@@ -11,6 +11,7 @@ type Settings struct {
 	CloudflaredConfigPath string   `json:"cloudflaredConfigPath"`
 	OriginCertPath        string   `json:"originCertPath"`
 	HomeUsers             []string `json:"homeUsers"`
+	IgnoredPaths          []string `json:"ignoredPaths"`
 	DataDir               string   `json:"-"`
 }
 
@@ -66,6 +67,9 @@ func (s *Store) Update(in Settings) error {
 	s.settings.OriginCertPath = in.OriginCertPath
 	if in.HomeUsers != nil {
 		s.settings.HomeUsers = in.HomeUsers
+	}
+	if in.IgnoredPaths != nil {
+		s.settings.IgnoredPaths = in.IgnoredPaths
 	}
 
 	return s.saveLocked()

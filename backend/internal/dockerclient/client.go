@@ -105,7 +105,7 @@ func (c *Client) FindByHostPort(containers []ContainerStatus, port int) *Contain
 	return nil
 }
 
-func ScanComposeProjects(homeUsers []string) ([]ComposeService, error) {
+func ScanComposeProjects(homeUsers, ignoredPaths []string) ([]ComposeService, error) {
 	var services []ComposeService
 
 	for _, user := range homeUsers {
@@ -119,6 +119,9 @@ func ScanComposeProjects(homeUsers []string) ([]ComposeService, error) {
 				return nil
 			}
 			if d.IsDir() {
+				if isIgnoredPath(path, ignoredPaths) {
+					return filepath.SkipDir
+				}
 				base := filepath.Base(path)
 				if shouldSkipDir(base) {
 					return filepath.SkipDir
@@ -132,6 +135,9 @@ func ScanComposeProjects(homeUsers []string) ([]ComposeService, error) {
 			}
 
 			projectDir := filepath.Dir(path)
+			if isIgnoredPath(projectDir, ignoredPaths) {
+				return nil
+			}
 			projectName := filepath.Base(projectDir)
 			parsed, err := parseComposeFile(path)
 			if err != nil {

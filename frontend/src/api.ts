@@ -79,6 +79,7 @@ export interface Settings {
   cloudflaredConfigPath: string
   originCertPath?: string
   homeUsers: string[]
+  ignoredPaths?: string[]
 }
 
 export interface FileEntry {
