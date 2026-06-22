@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/msquad/cloudflared-panel/internal/dockerclient"
 	"github.com/msquad/cloudflared-panel/internal/handlers"
+	"github.com/msquad/cloudflared-panel/internal/middleware"
 	"github.com/msquad/cloudflared-panel/internal/settings"
 )
 
@@ -38,10 +39,12 @@ func main() {
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "X-API-Key"},
 	}))
 
 	api := r.Group("/api")
+	api.GET("/auth/status", h.GetAuthStatus)
+	api.Use(middleware.APIKeyAuth())
 	{
 		api.GET("/overview", h.GetOverview)
 		api.GET("/tunnel/details", h.GetTunnelDetails)
@@ -56,6 +59,8 @@ func main() {
 		api.GET("/home/users", h.ListHomeUsers)
 		api.GET("/home/:username/browse", h.BrowseHome)
 		api.GET("/compose/scan", h.ScanCompose)
+		api.GET("/compose/projects", h.GetComposeProjects)
+		api.POST("/compose/action", h.ComposeAction)
 	}
 
 	staticDir := os.Getenv("STATIC_DIR")

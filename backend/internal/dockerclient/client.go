@@ -21,8 +21,9 @@ type ContainerStatus struct {
 	State   string `json:"state"`
 	Status  string `json:"status"`
 	Ports   []Port `json:"ports"`
-	Project string `json:"project,omitempty"`
-	Service string `json:"service,omitempty"`
+	Project     string `json:"project,omitempty"`
+	Service     string `json:"service,omitempty"`
+	ConfigFiles string `json:"configFiles,omitempty"`
 }
 
 type Port struct {
@@ -78,14 +79,15 @@ func (c *Client) ListContainers(ctx context.Context) ([]ContainerStatus, error) 
 		service := ctr.Labels["com.docker.compose.service"]
 
 		out = append(out, ContainerStatus{
-			ID:      ctr.ID[:12],
-			Name:    name,
-			Image:   ctr.Image,
-			State:   ctr.State,
-			Status:  ctr.Status,
-			Ports:   ports,
-			Project: project,
-			Service: service,
+			ID:          ctr.ID[:12],
+			Name:        name,
+			Image:       ctr.Image,
+			State:       ctr.State,
+			Status:      ctr.Status,
+			Ports:       ports,
+			Project:     project,
+			Service:     service,
+			ConfigFiles: ctr.Labels["com.docker.compose.project.config_files"],
 		})
 	}
 

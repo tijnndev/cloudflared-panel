@@ -8,6 +8,7 @@ services:
     environment:
       - PORT=8090
       - DATA_DIR=/data
+      - API_KEY=${API_KEY:-}
       - TUNNEL_ORIGIN_CERT=${TUNNEL_ORIGIN_CERT:-}
     volumes:
       - panel_data:/data

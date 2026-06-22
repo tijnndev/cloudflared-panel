@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0 go build -o /cloudflared-panel .
 
 FROM alpine:3.20
 ARG TARGETARCH
-RUN apk add --no-cache ca-certificates wget \
+RUN apk add --no-cache ca-certificates wget docker-cli docker-cli-compose \
     && wget -q "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${TARGETARCH}" \
        -O /usr/local/bin/cloudflared \
     && chmod +x /usr/local/bin/cloudflared \

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/msquad/cloudflared-panel/internal/cloudflared"
 	dockerclient "github.com/msquad/cloudflared-panel/internal/dockerclient"
+	"github.com/msquad/cloudflared-panel/internal/middleware"
 	"github.com/msquad/cloudflared-panel/internal/settings"
 )
 
@@ -70,9 +72,10 @@ func (h *Handler) GetOverview(c *gin.Context) {
 	}
 
 	var (
-		containers []dockerclient.ContainerStatus
-		running    bool
-		wg         sync.WaitGroup
+		containers      []dockerclient.ContainerStatus
+		composeServices []dockerclient.ComposeService
+		running         bool
+		wg              sync.WaitGroup
 	)
 
 	if h.docker != nil {
@@ -82,6 +85,11 @@ func (h *Handler) GetOverview(c *gin.Context) {
 			containers, _ = h.docker.ListContainers(ctx)
 		}()
 	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		composeServices, _ = dockerclient.ScanComposeProjectsCached(cfg.HomeUsers)
+	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -110,6 +118,16 @@ func (h *Handler) GetOverview(c *gin.Context) {
 							Name:    ctr.Service,
 							Project: ctr.Project,
 						}
+					}
+				} else if composeServices != nil {
+					if matched := dockerclient.MatchComposeService(composeServices, parsed.Port); matched != nil {
+						status.Compose = matched
+					}
+				}
+				if status.Compose != nil && status.Compose.ComposeFile == "" && composeServices != nil {
+					if matched := dockerclient.MatchComposeService(composeServices, parsed.Port); matched != nil {
+						status.Compose.ComposeFile = matched.ComposeFile
+						status.Compose.HostPorts = matched.HostPorts
 					}
 				}
 			}
@@ -367,6 +385,100 @@ func (h *Handler) BrowseHome(c *gin.Context) {
 		"entries":      entries,
 		"composeFiles": composeFiles,
 	})
+}
+
+func (h *Handler) GetAuthStatus(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"authRequired": middleware.AuthRequired()})
+}
+
+func (h *Handler) GetComposeProjects(c *gin.Context) {
+	ctx := c.Request.Context()
+	cfg := h.settings.Get()
+
+	services, err := dockerclient.ScanComposeProjectsCached(cfg.HomeUsers)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	tunnelCfg, err := cloudflared.LoadConfig(cfg.CloudflaredConfigPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	routePorts := make([]dockerclient.RoutePort, 0)
+	for _, rule := range tunnelCfg.Ingress {
+		parsed, _ := cloudflared.ParseService(rule.Service)
+		if parsed != nil && parsed.Port > 0 && rule.Hostname != "" {
+			routePorts = append(routePorts, dockerclient.RoutePort{
+				Hostname: rule.Hostname,
+				Port:     parsed.Port,
+				Service:  rule.Service,
+			})
+		}
+	}
+
+	var containers []dockerclient.ContainerStatus
+	if h.docker != nil {
+		containers, _ = h.docker.ListContainers(ctx)
+	}
+
+	projects := dockerclient.GroupComposeProjects(services, routePorts, containers)
+	if projects == nil {
+		projects = []dockerclient.ComposeProject{}
+	}
+
+	c.JSON(http.StatusOK, projects)
+}
+
+type ComposeActionRequest struct {
+	ComposeFile string `json:"composeFile" binding:"required"`
+	Action      string `json:"action" binding:"required"`
+}
+
+func (h *Handler) ComposeAction(c *gin.Context) {
+	var req ComposeActionRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	action := strings.ToLower(strings.TrimSpace(req.Action))
+	if action != "start" && action != "stop" && action != "restart" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "action must be start, stop, or restart"})
+		return
+	}
+
+	cfg := h.settings.Get()
+	if !isAllowedComposePath(req.ComposeFile, cfg.HomeUsers) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "compose file outside allowed home directories"})
+		return
+	}
+
+	output, err := dockerclient.RunComposeAction(c.Request.Context(), req.ComposeFile, action)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error(), "output": output})
+		return
+	}
+
+	dockerclient.InvalidateComposeCache()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("compose %s completed", action),
+		"output":  output,
+	})
+}
+
+func isAllowedComposePath(composeFile string, homeUsers []string) bool {
+	clean := filepath.Clean(composeFile)
+	for _, user := range homeUsers {
+		base := filepath.Join("/home", user)
+		if clean == base || strings.HasPrefix(clean, base+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handler) ScanCompose(c *gin.Context) {
