@@ -167,6 +167,71 @@ func mergeEnv(base map[string]string, overlay map[string]string) map[string]stri
 	return merged
 }
 
+func enrichServiceEnv(svcName string, env map[string]string) map[string]string {
+	enriched := mergeEnv(map[string]string{}, env)
+
+	if enriched["PORT"] == "" {
+		for _, key := range portEnvKeysForService(svcName) {
+			if v := env[key]; v != "" {
+				enriched["PORT"] = v
+				break
+			}
+		}
+	}
+
+	return enriched
+}
+
+func portEnvKeysForService(svcName string) []string {
+	name := strings.ToLower(strings.TrimSpace(svcName))
+	keys := make([]string, 0, 8)
+
+	if strings.Contains(name, "frontend") || name == "web" || name == "ui" {
+		keys = append(keys, "FRONTEND_PORT", "WEB_PORT", "UI_PORT")
+	}
+	if strings.Contains(name, "backend") || strings.Contains(name, "api") {
+		keys = append(keys, "BACKEND_PORT", "API_PORT")
+	}
+	if strings.Contains(name, "db") || strings.Contains(name, "postgres") || strings.Contains(name, "database") {
+		keys = append(keys, "DB_PORT", "POSTGRES_PORT", "DATABASE_PORT")
+	}
+	if strings.Contains(name, "ollama") {
+		keys = append(keys, "OLLAMA_PORT")
+	}
+
+	slug := strings.ToUpper(strings.NewReplacer("-", "_", ".", "_").Replace(name))
+	if slug != "" {
+		keys = append(keys, slug+"_PORT")
+	}
+
+	keys = append(keys, "PORT", "BACKEND_PORT", "FRONTEND_PORT", "HOST_PORT", "EXTERNAL_PORT")
+	return uniqueStrings(keys)
+}
+
+func uniqueStrings(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if _, ok := seen[item]; ok {
+			continue
+		}
+		seen[item] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func inferPortsFromEnv(svcName string, env map[string]string) []int {
+	for _, key := range portEnvKeysForService(svcName) {
+		if v := env[key]; v != "" {
+			if port := parsePortMapping(v); port > 0 {
+				return []int{port}
+			}
+		}
+	}
+	return nil
+}
+
 func portFromAny(v interface{}, env map[string]string) int {
 	switch x := v.(type) {
 	case int:

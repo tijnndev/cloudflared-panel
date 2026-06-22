@@ -146,7 +146,7 @@ func ScanComposeProjects(homeUsers, ignoredPaths []string) ([]ComposeService, er
 			}
 
 			for svcName, svc := range parsed {
-				hostPorts := extractHostPorts(svc, projectEnv)
+				hostPorts := extractHostPorts(svcName, svc, projectEnv)
 				if hostPorts == nil {
 					hostPorts = []int{}
 				}
@@ -214,8 +214,8 @@ func parseComposeFile(path string) (map[string]composeService, error) {
 	return cf.Services, nil
 }
 
-func extractHostPorts(svc composeService, projectEnv map[string]string) []int {
-	env := mergeEnv(projectEnv, serviceEnvironment(svc))
+func extractHostPorts(svcName string, svc composeService, projectEnv map[string]string) []int {
+	env := enrichServiceEnv(svcName, mergeEnv(projectEnv, serviceEnvironment(svc)))
 
 	var ports []int
 	for _, p := range svc.Ports {
@@ -236,6 +236,11 @@ func extractHostPorts(svc composeService, projectEnv map[string]string) []int {
 			}
 		}
 	}
+
+	if len(ports) == 0 {
+		ports = inferPortsFromEnv(svcName, env)
+	}
+
 	return ports
 }
 

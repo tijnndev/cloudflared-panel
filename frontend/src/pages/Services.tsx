@@ -137,9 +137,8 @@ function ProjectRow({ project, onRefresh }: { project: ComposeProject; onRefresh
       </td>
       <td>
         <span
-          className={`badge ${
-            project.containerCount === 0 ? 'unknown' : project.running ? 'running' : 'stopped'
-          }`}
+          className={`badge ${project.containerCount === 0 ? 'unknown' : project.running ? 'running' : 'stopped'
+            }`}
         >
           {label}
         </span>
@@ -210,9 +209,6 @@ export default function Services() {
       <div className="page-header">
         <h2>Docker Compose Services</h2>
         <div className="actions">
-          <button className="secondary" disabled={loading || refreshing} onClick={() => load(true)}>
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
         </div>
       </div>
 

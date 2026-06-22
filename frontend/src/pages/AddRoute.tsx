@@ -130,7 +130,8 @@ export default function AddRoute() {
             Click a row to fill the form above: <strong>local port</strong> from the Ports column,
             and <strong>hostname</strong> as <span className="mono">{'<service>'}.msquad.cloud</span>{' '}
             (only if hostname is empty). Ports from <span className="mono">.env</span> variables
-            (e.g. <span className="mono">${'{PORT}'}</span>) are resolved automatically.
+            (e.g. <span className="mono">${'{PORT}'}</span>, <span className="mono">${'{BACKEND_PORT}'}</span>,{' '}
+            <span className="mono">${'{FRONTEND_PORT}'}</span>) are resolved automatically.
           </p>
           <table>
             <thead>

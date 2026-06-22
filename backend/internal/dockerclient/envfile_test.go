@@ -48,9 +48,43 @@ func TestExtractHostPortsWithEnv(t *testing.T) {
 	svc := composeService{
 		Ports: []any{"${PORT}:8080", "3001:3000"},
 	}
-	ports := extractHostPorts(svc, projectEnv)
+	ports := extractHostPorts("api", svc, projectEnv)
 	if len(ports) != 2 || ports[0] != 4024 || ports[1] != 3001 {
 		t.Fatalf("ports = %v, want [4024 3001]", ports)
+	}
+}
+
+func TestExtractHostPortsBackendPortFallback(t *testing.T) {
+	projectEnv := map[string]string{"BACKEND_PORT": "8082"}
+	svc := composeService{
+		Ports: []any{"${PORT}:8080"},
+	}
+	ports := extractHostPorts("backend", svc, projectEnv)
+	if len(ports) != 1 || ports[0] != 8082 {
+		t.Fatalf("ports = %v, want [8082]", ports)
+	}
+}
+
+func TestExtractHostPortsFrontendPortFallback(t *testing.T) {
+	projectEnv := map[string]string{"FRONTEND_PORT": "3001"}
+	svc := composeService{
+		Ports: []any{"${PORT}:3000"},
+	}
+	ports := extractHostPorts("frontend", svc, projectEnv)
+	if len(ports) != 1 || ports[0] != 3001 {
+		t.Fatalf("ports = %v, want [3001]", ports)
+	}
+}
+
+func TestInferPortsFromEnvWithoutPortsSection(t *testing.T) {
+	projectEnv := map[string]string{
+		"BACKEND_PORT":  "8086",
+		"FRONTEND_PORT": "3001",
+	}
+	svc := composeService{}
+	ports := extractHostPorts("copilot-api", svc, projectEnv)
+	if len(ports) != 1 || ports[0] != 8086 {
+		t.Fatalf("ports = %v, want [8086]", ports)
 	}
 }
 
@@ -64,7 +98,7 @@ func TestExtractHostPortsLongSyntax(t *testing.T) {
 			},
 		},
 	}
-	ports := extractHostPorts(svc, projectEnv)
+	ports := extractHostPorts("api", svc, projectEnv)
 	if len(ports) != 1 || ports[0] != 8083 {
 		t.Fatalf("ports = %v, want [8083]", ports)
 	}
