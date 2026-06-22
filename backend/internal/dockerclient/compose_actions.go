@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -77,8 +78,21 @@ func GroupComposeProjects(services []ComposeService, routes []RoutePort, contain
 
 	out := make([]ComposeProject, 0, len(byFile))
 	for _, p := range byFile {
+		sort.Slice(p.Services, func(i, j int) bool {
+			return p.Services[i].Name < p.Services[j].Name
+		})
+		sort.Ints(p.HostPorts)
+		sort.Slice(p.MatchedRoutes, func(i, j int) bool {
+			return p.MatchedRoutes[i].Hostname < p.MatchedRoutes[j].Hostname
+		})
 		out = append(out, *p)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Project != out[j].Project {
+			return out[i].Project < out[j].Project
+		}
+		return out[i].ComposeFile < out[j].ComposeFile
+	})
 	return out
 }
 

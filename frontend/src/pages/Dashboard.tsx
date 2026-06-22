@@ -163,9 +163,6 @@ export default function Dashboard() {
       <div className="page-header">
         <h2>Tunnel Overview</h2>
         <div className="actions">
-          <button className="secondary" disabled={loading || refreshing} onClick={() => load(true)}>
-            {refreshing ? 'Refreshing…' : 'Refresh'}
-          </button>
           <button disabled={reloading || loading} onClick={reloadCloudflared}>
             Reload cloudflared
           </button>

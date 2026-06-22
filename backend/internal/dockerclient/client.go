@@ -139,13 +139,14 @@ func ScanComposeProjects(homeUsers, ignoredPaths []string) ([]ComposeService, er
 				return nil
 			}
 			projectName := filepath.Base(projectDir)
+			projectEnv := loadEnvFiles(projectDir)
 			parsed, err := parseComposeFile(path)
 			if err != nil {
 				return nil
 			}
 
 			for svcName, svc := range parsed {
-				hostPorts := extractHostPorts(svc)
+				hostPorts := extractHostPorts(svc, projectEnv)
 				if hostPorts == nil {
 					hostPorts = []int{}
 				}
@@ -191,8 +192,9 @@ type composeFile struct {
 }
 
 type composeService struct {
-	Ports       []any  `yaml:"ports"`
-	ContainerName string `yaml:"container_name"`
+	Ports         []any       `yaml:"ports"`
+	ContainerName string      `yaml:"container_name"`
+	Environment   interface{} `yaml:"environment"`
 }
 
 func parseComposeFile(path string) (map[string]composeService, error) {
@@ -212,15 +214,24 @@ func parseComposeFile(path string) (map[string]composeService, error) {
 	return cf.Services, nil
 }
 
-func extractHostPorts(svc composeService) []int {
+func extractHostPorts(svc composeService, projectEnv map[string]string) []int {
+	env := mergeEnv(projectEnv, serviceEnvironment(svc))
+
 	var ports []int
 	for _, p := range svc.Ports {
 		switch v := p.(type) {
 		case int:
 			ports = append(ports, v)
+		case int64:
+			ports = append(ports, int(v))
+		case float64:
+			ports = append(ports, int(v))
 		case string:
-			hostPort := parsePortMapping(v)
-			if hostPort > 0 {
+			if hostPort := parsePortMappingWithEnv(v, env); hostPort > 0 {
+				ports = append(ports, hostPort)
+			}
+		default:
+			if hostPort := portFromAny(v, env); hostPort > 0 {
 				ports = append(ports, hostPort)
 			}
 		}

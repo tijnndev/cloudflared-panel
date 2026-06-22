@@ -129,7 +129,8 @@ export default function AddRoute() {
           <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
             Click a row to fill the form above: <strong>local port</strong> from the Ports column,
             and <strong>hostname</strong> as <span className="mono">{'<service>'}.msquad.cloud</span>{' '}
-            (only if hostname is empty).
+            (only if hostname is empty). Ports from <span className="mono">.env</span> variables
+            (e.g. <span className="mono">${'{PORT}'}</span>) are resolved automatically.
           </p>
           <table>
             <thead>
