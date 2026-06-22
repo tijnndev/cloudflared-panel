@@ -163,14 +163,12 @@ function ProjectRow({ project, onRefresh }: { project: ComposeProject; onRefresh
 export default function Services() {
   const [projects, setProjects] = useState<ComposeProject[]>([])
   const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('project')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const load = useCallback(async (silent = false) => {
-    if (silent) setRefreshing(true)
-    else setLoading(true)
+    if (!silent) setLoading(true)
     try {
       setError('')
       setProjects(await api.composeProjects())
@@ -178,7 +176,6 @@ export default function Services() {
       setError(e instanceof Error ? e.message : 'Failed to load compose projects')
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
   }, [])
 
