@@ -332,6 +332,14 @@ th.sort-active {
   background: var(--surface-2);
 }
 
+.compose-prefill-row {
+  cursor: pointer;
+}
+
+.compose-prefill-row:hover td {
+  background: var(--surface-2);
+}
+
 .file-name {
   display: inline-flex;
   align-items: center;
@@ -357,6 +365,16 @@ th.sort-active {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.actions-inline {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.actions-inline button {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .table-wrap {

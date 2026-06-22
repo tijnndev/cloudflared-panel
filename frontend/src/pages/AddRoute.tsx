@@ -123,9 +123,14 @@ export default function AddRoute() {
 
       {compose.length > 0 && (
         <div className="card table-wrap">
-          <div className="stat-label" style={{ marginBottom: '0.75rem' }}>
-            Docker Compose services (click to prefill)
+          <div className="stat-label" style={{ marginBottom: '0.35rem' }}>
+            Discovered compose services
           </div>
+          <p style={{ color: 'var(--muted)', fontSize: '0.85rem', margin: '0 0 0.75rem' }}>
+            Click a row to fill the form above: <strong>local port</strong> from the Ports column,
+            and <strong>hostname</strong> as <span className="mono">{'<service>'}.msquad.cloud</span>{' '}
+            (only if hostname is empty).
+          </p>
           <table>
             <thead>
               <tr>
@@ -141,7 +146,7 @@ export default function AddRoute() {
                 return (ports.length ? ports : [0]).map((p) => (
                   <tr
                     key={`${svc.composeFile}-${svc.name}-${p}`}
-                    style={{ cursor: p ? 'pointer' : 'default' }}
+                    className={p ? 'compose-prefill-row' : undefined}
                     onClick={() => p && applyCompose(svc, p)}
                   >
                     <td>{svc.project}</td>

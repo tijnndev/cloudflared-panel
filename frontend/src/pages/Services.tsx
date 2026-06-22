@@ -64,7 +64,7 @@ function ProjectRow({ project, onRefresh }: { project: ComposeProject; onRefresh
         </span>
       </td>
       <td>
-        <div className="actions">
+        <div className="actions actions-inline">
           <button disabled={!!busy} onClick={() => runAction('start')}>
             {busy === 'start' ? '…' : 'Start'}
           </button>
