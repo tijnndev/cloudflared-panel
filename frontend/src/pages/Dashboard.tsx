@@ -1,6 +1,75 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api, Overview, RouteStatus, TunnelDetails } from '../api'
 import { DashboardSkeleton } from '../components/DashboardSkeleton'
+
+type SortKey = 'hostname' | 'service' | 'status' | 'docker' | 'compose'
+type SortDir = 'asc' | 'desc'
+
+function dockerLabel(route: RouteStatus) {
+  if (route.container) return route.container.name
+  if (route.port) return `No container on :${route.port}`
+  return ''
+}
+
+function composeLabel(route: RouteStatus) {
+  if (!route.compose) return ''
+  return `${route.compose.project}/${route.compose.name}`
+}
+
+function compareRoutes(a: RouteStatus, b: RouteStatus, key: SortKey, dir: SortDir) {
+  if (a.isCatchAll !== b.isCatchAll) {
+    return a.isCatchAll ? 1 : -1
+  }
+
+  let cmp = 0
+  switch (key) {
+    case 'hostname':
+      cmp = a.hostname.localeCompare(b.hostname, undefined, { sensitivity: 'base' })
+      break
+    case 'service':
+      cmp = a.service.localeCompare(b.service, undefined, { sensitivity: 'base' })
+      break
+    case 'status':
+      cmp = Number(a.serviceUp) - Number(b.serviceUp)
+      break
+    case 'docker':
+      cmp = dockerLabel(a).localeCompare(dockerLabel(b), undefined, { sensitivity: 'base' })
+      break
+    case 'compose':
+      cmp = composeLabel(a).localeCompare(composeLabel(b), undefined, { sensitivity: 'base' })
+      break
+  }
+  if (cmp === 0) {
+    cmp = a.hostname.localeCompare(b.hostname, undefined, { sensitivity: 'base' })
+  }
+  return dir === 'asc' ? cmp : -cmp
+}
+
+function SortHeader({
+  label,
+  sortKey,
+  activeKey,
+  dir,
+  onSort,
+}: {
+  label: string
+  sortKey: SortKey
+  activeKey: SortKey
+  dir: SortDir
+  onSort: (key: SortKey) => void
+}) {
+  const active = activeKey === sortKey
+  return (
+    <th
+      className={`sortable${active ? ' sort-active' : ''}`}
+      onClick={() => onSort(sortKey)}
+      aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      {label}
+      <span className="sort-indicator">{active ? (dir === 'asc' ? ' ▲' : ' ▼') : ''}</span>
+    </th>
+  )
+}
 
 function StatusBadge({ up, label }: { up: boolean; label?: string }) {
   return (
@@ -85,7 +154,7 @@ function RouteRow({
         )}
       </td>
       <td>
-        <div className="actions">
+        <div className="actions actions-inline">
           <button className="secondary" disabled={busy} onClick={handleDns}>
             Route DNS
           </button>
@@ -106,6 +175,8 @@ export default function Dashboard() {
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [error, setError] = useState('')
   const [reloading, setReloading] = useState(false)
+  const [sortKey, setSortKey] = useState<SortKey>('hostname')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const loadDetails = useCallback(async () => {
     setDetailsLoading(true)
@@ -157,6 +228,20 @@ export default function Dashboard() {
 
   const routes = data?.routes.filter((r) => !r.isCatchAll) ?? []
   const upCount = routes.filter((r) => r.serviceUp).length
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(key)
+    setSortDir(key === 'hostname' || key === 'service' || key === 'docker' || key === 'compose' ? 'asc' : 'desc')
+  }
+
+  const sortedRoutes = useMemo(() => {
+    if (!data?.routes) return []
+    return [...data.routes].sort((a, b) => compareRoutes(a, b, sortKey, sortDir))
+  }, [data?.routes, sortKey, sortDir])
 
   return (
     <>
@@ -211,20 +296,20 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="card table-wrap">
+          <div className="card table-wrap" style={{ padding: 0 }}>
             <table>
               <thead>
                 <tr>
-                  <th>Hostname</th>
-                  <th>Service</th>
-                  <th>Status</th>
-                  <th>Docker</th>
-                  <th>Compose</th>
+                  <SortHeader label="Hostname" sortKey="hostname" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Service" sortKey="service" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Docker" sortKey="docker" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortHeader label="Compose" sortKey="compose" activeKey={sortKey} dir={sortDir} onSort={handleSort} />
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {data.routes.map((route, i) => (
+                {sortedRoutes.map((route, i) => (
                   <RouteRow key={route.hostname || `catch-${i}`} route={route} onRefresh={() => load(true)} />
                 ))}
               </tbody>

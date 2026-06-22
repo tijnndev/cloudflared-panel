@@ -10,6 +10,33 @@ type ComposeRow = {
   port: number
 }
 
+function collectUsedPorts(overview: Overview | null, compose: ComposeService[]) {
+  const used = new Set<number>()
+  for (const route of overview?.routes ?? []) {
+    if (!route.isCatchAll && route.port > 0) {
+      used.add(route.port)
+    }
+  }
+  for (const svc of compose) {
+    for (const p of svc.hostPorts ?? []) {
+      if (p > 0) used.add(p)
+    }
+  }
+  return used
+}
+
+function suggestAvailablePort(used: Set<number>) {
+  for (const start of [8080, 3000, 8000, 4000, 1024]) {
+    if (!used.has(start)) return start
+  }
+  const sorted = [...used].sort((a, b) => a - b)
+  let candidate = Math.max(1024, sorted[0] ?? 8080)
+  while (used.has(candidate) && candidate <= 65535) {
+    candidate++
+  }
+  return candidate <= 65535 ? candidate : 8080
+}
+
 function compareComposeRows(a: ComposeRow, b: ComposeRow, key: SortKey, dir: SortDir) {
   let cmp = 0
   switch (key) {
@@ -69,7 +96,11 @@ export default function AddRoute() {
   const [overview, setOverview] = useState<Overview | null>(null)
   const [compose, setCompose] = useState<ComposeService[]>([])
   const [hostname, setHostname] = useState(search.get('hostname') || '')
-  const [port, setPort] = useState(Number(search.get('port') || 8080))
+  const [port, setPort] = useState(() => {
+    const p = search.get('port')
+    return p ? Number(p) : 8080
+  })
+  const [suggestedPort, setSuggestedPort] = useState<number | null>(null)
   const [scheme, setScheme] = useState('http')
   const [routeDns, setRouteDns] = useState(true)
   const [message, setMessage] = useState('')
@@ -79,15 +110,23 @@ export default function AddRoute() {
   const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   useEffect(() => {
-    api.overview().then(setOverview).catch(() => {})
-    api.scanCompose().then(setCompose).catch(() => {})
-  }, [])
+    const portParam = search.get('port')
+    const hostnameParam = search.get('hostname')
+    if (hostnameParam) setHostname(hostnameParam)
+    if (portParam) setPort(Number(portParam))
 
-  useEffect(() => {
-    const h = search.get('hostname')
-    const p = search.get('port')
-    if (h) setHostname(h)
-    if (p) setPort(Number(p))
+    Promise.all([api.overview(), api.scanCompose()])
+      .then(([ov, comp]) => {
+        setOverview(ov)
+        setCompose(comp)
+        const used = collectUsedPorts(ov, comp)
+        const suggested = suggestAvailablePort(used)
+        setSuggestedPort(suggested)
+        if (!portParam) {
+          setPort(suggested)
+        }
+      })
+      .catch(() => {})
   }, [search])
 
   async function onSubmit(e: FormEvent) {
@@ -184,6 +223,13 @@ export default function AddRoute() {
               onChange={(e) => setPort(Number(e.target.value))}
               required
             />
+            {suggestedPort !== null && (
+              <p style={{ color: 'var(--muted)', fontSize: '0.8rem', marginBottom: 0 }}>
+                {port === suggestedPort
+                  ? `Suggested free port (not used by tunnel routes or compose services).`
+                  : `Suggested free port: ${suggestedPort}`}
+              </p>
+            )}
           </div>
           <div>
             <label htmlFor="scheme">Scheme</label>
